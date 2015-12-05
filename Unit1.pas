@@ -71,6 +71,17 @@ type
     Panel2: TPanel;
     lst1: TListBox;
     ValueListEditor1: TValueListEditor;
+    Button5: TButton;
+    Edit4: TEdit;
+    Label23: TLabel;
+    Edit5: TEdit;
+    Edit6: TEdit;
+    Label24: TLabel;
+    Label25: TLabel;
+    N3: TMenuItem;
+    SearchAll1: TMenuItem;
+    Bevel1: TBevel;
+    Button6: TButton;
     procedure IdHTTP1Status(ASender: TObject; const AStatus: TIdStatus;const AStatusText: String);
     procedure IdHTTP1Disconnected(Sender: TObject);
     procedure IdHTTP1Connected(Sender: TObject);
@@ -111,6 +122,11 @@ type
     procedure Edit1KeyPress(Sender: TObject; var Key: Char);
     procedure ValueListEditor1Click(Sender: TObject);
     procedure ValueListEditor1DblClick(Sender: TObject);
+    procedure Button5Click(Sender: TObject);
+    procedure Edit5KeyPress(Sender: TObject; var Key: Char);
+    procedure Edit6KeyPress(Sender: TObject; var Key: Char);
+    procedure SearchAll1Click(Sender: TObject);
+    procedure Button6Click(Sender: TObject);
   private
      function IsSupportedFileType(const FileName: string): Boolean;
     procedure AddFile(const FileName: string);
@@ -124,6 +140,12 @@ type
 
   procedure processStruct(struct:IRpcStruct);
   procedure processArray(a:IRpcArray);
+  procedure processIMDBArray(a:IRpcArray);
+  procedure processIMDBStruct(struct:IRpcStruct);
+  procedure processIMDBArraySubtile(a:IRpcArray);
+procedure processIMDBStructSubtile(struct:IRpcStruct);
+
+
   procedure trace(msg:string)  ;
 var
   Form1: TForm1;
@@ -134,6 +156,7 @@ var
 
         nomeAprocurar:string;
 
+        endOfWorld:Boolean;
 
       subCount:Integer=0;
       listaLegendas:TSubtileList;
@@ -141,7 +164,7 @@ var
 
 implementation
 
-uses  ShellApi,uLog, Unit3;
+uses  ShellApi,uLog, Unit3, Unit4;
 
 const
   cSupportedExts = '*.avi;*.mp4;*.mkv;*.dvx;*.h264;*.mpeg;*.*;';
@@ -790,6 +813,7 @@ end;
 
 end;
 
+
 function XML_RPC(aRPCRequest: string): string;
 const
   cURL= 'http://api.opensubtitles.org/xml-rpc';
@@ -891,6 +915,26 @@ begin
    Form1.IdHTTP1.Disconnect();
 end;
 
+function SearchMovieImdb(aToken,  aImdbID: String): string;
+var
+  data:string;
+
+begin
+data:='<methodCall>'+
+      '<methodName>GetIMDBMovieDetails</methodName>'+
+      '<params>'+
+      '<param>'+
+      '<value><string>'+atoken+'</string></value>'+
+      '</param>'+
+      '<param>'+
+      '<value><string>'+aImdbID+'</string></value>'+
+      '</param>'+
+      '</params>'+
+      '</methodCall>';
+
+
+  Result:= XML_RPC_Send(data);
+end;
 
 function SearchSubtitlesImdb(aToken, aSublanguageID: string; aImdbID: Cardinal): string;
 const
@@ -967,6 +1011,111 @@ begin
 
    nomeAprocurar:=aQuery;
   Result:=XML_RPC_Send (Format(SEARCH_SUBTITLES, [aToken, aSublanguageID, aQuery]));
+end;
+
+function SearchMultiSubtitles(aToken, aSublanguageID: string;list:TStrings): string;
+var
+  SEARCH_SUBTITLES:string;
+  i:Integer;
+
+  function addTag(value:string):string ;
+  begin
+                Result:=    '       <struct>' +
+                     '        <member>' +
+                     '         <name>sublanguageid</name>' +
+                     '         <value><string>aSublanguageID</string>' +
+                     '         </value>' +
+                     '        </member>' +
+                     '        <member>' +
+                     '         <name>query</name>' +
+                     '         <value><string>value</string></value>' +
+                     '        </member>' +
+                     '       </struct>' ;
+  end;
+
+  var tags:string;
+
+begin
+
+  tags:='';
+for i:=0 to list.Count-1 do
+begin
+  tags:=tags+addtag(list.Strings[i]);
+
+end;
+
+
+  SEARCH_SUBTITLES := '<?xml version="1.0"?>' +
+                     '<methodCall>' +
+                     '  <methodName>SearchSubtitles</methodName>' +
+                     '  <params>' +
+                     '    <param>' +
+                     '      <value><string>aToken</string></value>' +
+                     '    </param>' +
+                     '  <param>' +
+                     '   <value>' +
+                     '    <array>' +
+                     '     <data>' +
+                     '      <value>' +
+                     tags+
+                     '      </value>' +
+                     '     </data>' +
+                     '    </array>' +
+                     '   </value>' +
+                     '  </param>' +
+                     ' </params>' +
+                     '</methodCall>';
+
+
+
+  Result:=XML_RPC_Send (SEARCH_SUBTITLES);
+end;
+
+function SearchSubtitlesForSerie(aToken, aSublanguageID, aQuery:string;season,episode: integer): string;
+const
+SEARCH_SUBTITLES = '<?xml version="1.0"?>' +
+                     '<methodCall>' +
+                     '  <methodName>SearchSubtitles</methodName>' +
+                     '  <params>' +
+                     '    <param>' +
+                     '      <value><string>%0:s</string></value>' +
+                     '    </param>' +
+                     '  <param>' +
+                     '   <value>' +
+                     '    <array>' +
+                     '     <data>' +
+                     '      <value>' +
+                     '       <struct>' +
+                     '        <member>' +
+                     '         <name>sublanguageid</name>' +
+                     '         <value><string>%1:s</string>' +
+                     '         </value>' +
+                     '        </member>' +
+                     '        <member>' +
+                     '         <name>query</name>' +
+                     '         <value><string>%2:s</string></value>' +
+                     '        </member>' +
+                     '        <member>' +
+                     '         <name>season</name>' +
+                     '         <value><int>%3:d</int></value>' +
+                     '        </member>' +					 
+                     '        <member>' +
+                     '         <name>episode</name>' +
+                     '         <value><int>%4:d</int></value>' +
+                     '        </member>' +					 
+                     '       </struct>' +
+                     '      </value>' +
+                     '     </data>' +
+                     '    </array>' +
+                     '   </value>' +
+                     '  </param>' +
+                     ' </params>' +
+                     '</methodCall>';
+
+begin
+
+   nomeAprocurar:=aQuery;
+  Result:=XML_RPC_Send (Format(SEARCH_SUBTITLES, [aToken, aSublanguageID, aQuery,season,episode]));
 end;
 
 procedure trace(msg:string)  ;
@@ -1446,10 +1595,6 @@ item:TRpcStructItem;
 iArray:iRpcArray;
 
 begin
- // listaLegendas.Clear;
- // Form1.lst1.Items.Clear;
- // form1.ListBox1.Items.Clear;
-  //  form1.ListBox2.Items.Clear;
 
       FRpcResult := TRpcResult.Create;
       FRpcResult.Clear;
@@ -1505,33 +1650,7 @@ begin
       begin
 
       processArray(item.AsArray);
-        {
-        // trace('item :'+inttostr(index)+' is array');
-         iArray:= item.AsArray;
 
-         for i:=0 to iArray.Count-1 do
-         begin
-           aItem:=iArray.Items[i];
-
-               if (aItem.IsArray) then
-               begin
-                  trace(IntToStr(i)+' array');
-               end else
-               if (aItem.IsStruct) then
-               begin
-                  trace(IntToStr(i)+' struct');
-               end else
-              if (aItem.IsString) then
-               begin
-                  trace(IntToStr(i)+' string');
-               end else
-               begin
-                 trace(IntToStr(i)+' outro');
-               end;
-
-         end;
-
-         }
       end else
       if (item.IsStruct) then
       begin
@@ -1590,6 +1709,1202 @@ form1.JvBalloonHint1.ActivateHint(form1.lst1,'Find ('+inttostr(subCount)+') Subt
   FParser.Free;
 
 end;
+///********************************
+
+/////IMDB
+
+procedure processIMDBStruct(struct:IRpcStruct);
+var
+  id,i:Integer;
+  sItem:TRpcStructItem;
+  value:TRpcStructItem;
+begin
+
+
+
+             ///**********************************************
+     if (struct.KeyExists('plot')) then
+    begin
+       value:=struct.Keys['plot'];
+      imdbPlot:=value.AsString;
+    end;
+
+     if (struct.KeyExists('title')) then
+    begin
+       value:=struct.Keys['title'];
+       imdbTitle:=value.AsString;
+    end;
+
+     if (struct.KeyExists('rating')) then
+    begin
+       value:=struct.Keys['rating'];
+       imdbRate:=value.AsString;
+    end;
+
+     if (struct.KeyExists('cover')) then
+    begin
+       value:=struct.Keys['cover'];
+       imdbImage:=value.AsString;
+    end;
+
+
+      if (struct.KeyExists('id')) then
+    begin
+       value:=struct.Keys['id'];
+       imdbId:=value.AsString;
+    end;
+
+
+
+
+
+
+
+  for i:=0 to struct.Count-1 do
+  begin
+    sItem:=struct.Items[i];
+     if (sItem.IsStruct) then
+     begin
+        processIMDBStruct(sItem.AsStruct);
+     end else
+     if (sItem.IsArray) then
+     begin
+       processIMDBArray(sItem.AsArray);
+     end else
+     ///********************************//
+       if (sItem.IsString) then
+      begin
+
+
+         trace('item :'+inttostr(i)+'  '+sItem.Name+' is string');
+         trace( sItem.AsString);
+      end else
+       if (sItem.IsDate) then
+      begin
+      //   trace('item :'+inttostr(i)+' is IsDate');
+      end else
+        if (sItem.IsBase64) then
+      begin
+       //  trace('item :'+inttostr(i)+' is IsBase64');
+      end else
+        if (sItem.IsInteger) then
+      begin
+        // trace('item :'+inttostr(i)+' is IsInteger');
+
+      end else
+        if (sItem.IsFloat) then
+      begin
+//        trace('item :'+inttostr(i)+        sItem.Name+' is IsFloat');
+
+      end else
+      begin
+      //  trace( sItem.Name+' -----OUTRO');
+      end;
+
+               Application.ProcessMessages;
+  end;
+
+end;
+procedure processIMDBArray(a:IRpcArray);
+var
+  i:Integer;
+    aItem:TRpcArrayItem;
+begin
+  //trace('porcess ARRAY('+inttostr( a.Count)+') elements');
+for i:=0 to a.Count-1 do
+begin
+    aItem:=a.Items[i];
+
+
+
+    if (aitem.IsArray) then
+    begin
+      processIMDBArray(aItem.AsArray);
+    end else
+    if (aitem.IsStruct) then
+    begin
+      processIMDBStruct(aItem.AsStruct);
+    end else
+    ///*************************************
+     if (aitem.IsString) then
+      begin
+
+
+        // trace('item :'+inttostr(i)+' is string');
+      //   trace( aitem.AsString);
+      end else
+       if (aitem.IsDate) then
+      begin
+        // trace('item :'+inttostr(i)+' is IsDate');
+      end else
+        if (aitem.IsBase64) then
+      begin
+       //  trace('item :'+inttostr(i)+' is IsBase64');
+      end else
+        if (aitem.IsInteger) then
+      begin
+       //  trace('item :'+inttostr(i)+' is IsInteger');
+
+      end else
+        if (aitem.IsFloat) then
+      begin
+//        trace('item :'+inttostr(i)+' is IsFloat');
+       //   form1.stat1.Panels[1].Text:= FloatToStr( aItem.asFloat) +'.ms';
+      end else
+      begin
+      //  trace( ' -----OUTRO');
+      end;
+           Application.ProcessMessages;
+end;
+
+end;
+///--
+
+procedure findImdbTo(xml:string);
+var
+
+
+    FLastTag: string;
+    FStructNames: TStringList;
+    FParser: TXMLParser;
+    FFixEmptyStrings: Boolean;
+    FStack: TObjectStack;
+
+    subId:Integer;
+    FRpcResult:IRpcResult;
+
+procedure PushStructName(const Name: String);
+begin
+  FStructNames.Add(Name);
+end ;
+
+function PopStructName: string ;
+var
+  I: Integer ;
+begin
+  I := FStructNames.Count - 1;
+  Result := fStructNames[I];
+  FStructNames.Delete(I);
+end ;
+
+
+procedure DataTag;
+var
+  Data: string;
+     fs:TFormatSettings;
+begin
+  Data := FParser.CurContent;
+  { should never be empty }
+  if not (Trim(Data) <> '') then
+    Exit;
+  { last tag empty ignore }
+  if (FLastTag = '') then
+    Exit;
+
+  { struct name store for next pass}
+  if (FLastTag = 'NAME') then
+    if not (Trim(Data) <> '') then
+      Exit;
+
+  {this will handle the default
+   string pain in the ass}
+  if FLastTag = 'VALUE' then
+    FLastTag := 'STRING';
+
+  {ugly null string hack}
+  if (FLastTag = 'STRING') then
+    if (Data = '[NULL]') then
+      Data := '';
+
+  {if the tag was a struct name we will
+   just store it for the next pass    }
+  if (FLastTag = 'NAME') then
+  begin
+    // CLINTON 16/9/2003
+    PushStructName(Data);
+    Exit;
+  end;
+
+  if (FStack.Count > 0) then
+    if (TObject(FStack.Peek) is TRpcStruct) then
+    begin
+      if (FLastTag = 'STRING') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtString, PopStructName, Data);
+      if (FLastTag = 'INT') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
+      if (FLastTag = 'I4') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
+      if (FLastTag = 'DOUBLE') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtFloat, PopStructName, Data);
+      if (FLastTag = 'DATETIME.ISO8601') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtDateTime, PopStructName, Data);
+      if (FLastTag = 'BASE64') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtBase64, PopStructName, Data);
+      if (FLastTag = 'BOOLEAN') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtBoolean, PopStructName, Data);
+    end;
+
+  if (FStack.Count > 0) then
+    if (TObject(FStack.Peek) is TRpcArray) then
+    begin
+      if (FLastTag = 'STRING') then
+        TRpcArray(FStack.Peek).LoadRawData(dtString, Data);
+      if (FLastTag = 'INT') then
+        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
+      if (FLastTag = 'I4') then
+        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
+      if (FLastTag = 'DOUBLE') then
+        TRpcArray(FStack.Peek).LoadRawData(dtFloat, Data);
+      if (FLastTag = 'DATETIME.ISO8601') then
+        TRpcArray(FStack.Peek).LoadRawData(dtDateTime, Data);
+      if (FLastTag = 'BASE64') then
+        TRpcArray(FStack.Peek).LoadRawData(dtBase64, Data);
+      if (FLastTag = 'BOOLEAN') then
+        TRpcArray(FStack.Peek).LoadRawData(dtBoolean, Data);
+    end;
+
+  {here we are just getting a single value}
+  if FStack.Count = 0 then
+  begin
+    if (FLastTag = 'STRING') then
+      FRpcResult.AsRawString := Data;
+    if (FLastTag = 'INT') then
+      FRpcResult.AsInteger := StrToInt(Data);
+    if (FLastTag = 'I4') then
+      FRpcResult.AsInteger := StrToInt(Data);
+    if (FLastTag = 'DOUBLE') then
+    begin
+       FillChar(FS, SizeOf(FS), 0);
+    FS.DecimalSeparator := '.';
+
+      FRpcResult.AsFloat := StrToFloat(Data,FS);
+      end;
+    if (FLastTag = 'DATETIME.ISO8601') then
+      FRpcResult.AsDateTime := IsoToDateTime(Data);
+    if (FLastTag = 'BASE64') then
+      FRpcResult.AsBase64Raw := Data;
+    if (FLastTag = 'BOOLEAN') then
+      FRpcResult.AsBoolean := StrToBool(Data);
+  end;
+
+  FLastTag := '';
+end;
+
+{------------------------------------------------------------------------------}
+
+procedure EndTag;
+var
+  RpcStruct: TRpcStruct;
+  RpcArray: TRpcArray;
+  Tag: string;
+begin
+  Tag := UpperCase(Trim(string(FParser.CurName)));
+
+  {if we get a struct closure then
+   we pop it off the stack do a peek on
+   the item before it and add  it}
+  if (Tag = 'STRUCT') then
+  begin
+    {last item is a struct}
+    if (TObject(FStack.Peek) is TRpcStruct) then
+      if (FStack.Count > 0) then
+      begin
+        RpcStruct := TRpcStruct(FStack.Pop);
+        if (FStack.Count > 0) then
+        begin
+          if (TObject(FStack.Peek) is TRpcArray) then
+            TRpcArray(FStack.Peek).AddItem(RpcStruct);
+          if (TObject(FStack.Peek) is TRpcStruct) then
+            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcStruct)
+        end
+        else
+          FRpcResult.AsStruct := RpcStruct;
+        Exit;
+      end;
+
+    {last item is a array}
+    if (TObject(FStack.Peek) is TRpcArray) then
+      if (FStack.Count > 0) then
+      begin
+        RpcArray := TRpcArray(FStack.Pop);
+        if (FStack.Count > 0) then
+        begin
+          if (TObject(FStack.Peek) is TRpcArray) then
+            TRpcArray(FStack.Peek).AddItem(RpcArray);
+          if (TObject(FStack.Peek) is TRpcStruct) then
+            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
+        end
+        else
+          FRpcResult.AsArray := RpcArray;
+        Exit;
+      end;
+  end;
+
+  if (Tag = 'ARRAY') then
+  begin
+    if (TObject(FStack.Peek) is TRpcArray) then
+      if (FStack.Count > 0) then
+      begin
+        RpcArray := TRpcArray(FStack.Pop);
+        if (FStack.Count > 0) then
+        begin
+          if (TObject(FStack.Peek) is TRpcStruct) then
+          begin
+            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
+
+            end;
+          if (TObject(FStack.Peek) is TRpcArray) then
+            TRpcArray(FStack.Peek).AddItem(RpcArray);
+        end
+        else
+          FRpcResult.AsArray := RpcArray;
+        Exit;
+      end;
+  end;
+
+
+  if (Tag = 'PARAMS') then
+    if (FStack.Count > 0) then
+    begin
+      if (TObject(FStack.Peek) is TRpcStruct) then
+        FRpcResult.AsStruct := TRpcStruct(FStack.Pop);
+      if (TObject(FStack.Peek) is TRpcArray) then
+        FRpcResult.AsArray := TRpcArray(FStack.Pop);
+
+
+      FreeAndNil(FStack);
+      FreeAndNil(FStructNames);
+    end;
+end;
+
+{------------------------------------------------------------------------------}
+
+
+
+
+procedure StartTag;
+var
+  Tag: string;
+  RpcStruct: TRpcStruct;
+  RpcArray: TRpcArray;
+begin
+  Tag := UpperCase(Trim(string(FParser.CurName)));
+
+  if (Tag = 'STRUCT') then
+  begin
+    RpcStruct := TRpcStruct.Create;
+    try
+      FStack.Push(RpcStruct);
+      RpcStruct := nil;
+    finally
+      RpcStruct.Free;
+    end;
+  end;
+
+  if (Tag = 'ARRAY') then
+  begin
+    RpcArray := TRpcArray.Create;
+    try
+      FStack.Push(RpcArray);
+      RpcArray := nil;
+    finally
+      RpcArray.Free;
+    end;
+  end;
+  FLastTag := Tag;
+end;
+
+var
+i,j,index:integer;
+data:TRpcStruct;
+aItem:TRpcArrayItem;
+item:TRpcStructItem;
+iArray:iRpcArray;
+
+begin
+
+
+      FRpcResult := TRpcResult.Create;
+      FRpcResult.Clear;
+
+       subCount:=0;
+
+
+    FParser := TXMLParser.Create;
+    FStack := TObjectStack.Create;
+    FStructNames := TStringList.Create;
+
+
+  FParser.LoadFromBuffer(pchar(xml));
+  FParser.StartScan;
+  FParser.Normalize := False;
+  while FParser.Scan do
+  begin
+    case FParser.CurPartType of
+      ptStartTag:
+        StartTag;
+      ptContent:
+        DataTag;
+      ptEndTag:
+        EndTag;
+    end;
+        Application.ProcessMessages;
+  end;
+
+
+if (       FRpcResult.IsError) then
+begin
+trace(   FRpcResult.ErrorMsg);
+endOfWorld:=True;
+end;
+
+
+
+if (FRpcResult.IsArray) then
+begin
+ // trace('is array');
+end;
+if(FRpcResult.IsString) then
+begin
+  trace('is string');
+end;
+if (FRpcResult.IsStruct) then
+begin
+
+
+  for index:=0 to FRpcResult.AsStruct.Count-1 do
+  begin
+      item:=FRpcResult.AsStruct.Items[index];
+      if (item.IsArray) then
+      begin
+      processIMDBArray(item.AsArray);
+
+      end else
+      if (item.IsStruct) then
+      begin
+        processIMDBStruct(item.AsStruct);
+        // trace('item :'+inttostr(index)+' is struct');
+      end else
+       if (item.IsString) then
+      begin
+         trace('item :'+inttostr(index)+'  '+item.Name+' is string');
+       // trace( item.AsString);
+      end else
+       if (item.IsDate) then
+      begin
+        // trace('item :'+inttostr(index)+' is IsDate');
+//        trace( item.AsString);
+      end else
+        if (item.IsBase64) then
+      begin
+        // trace('item :'+inttostr(index)+' is IsBase64');
+//        trace( item.AsString);
+      end else
+        if (item.IsInteger) then
+      begin
+        // trace('item :'+inttostr(index)+' is IsInteger');
+//        trace( item.AsString);
+      end else
+        if (item.IsFloat) then
+      begin
+          form1.stat1.Panels[1].Text:= FloatToStr( item.asFloat) +'.ms';
+      end else
+      begin
+       // trace('outro');
+      end;
+
+              Application.ProcessMessages;
+
+  end;
+
+
+
+end;
+
+form1.JvBalloonHint1.ActivateHint(form1.lst1,'Operation Complete ','Information',3000);
+
+
+
+  FStructNames.Free;
+  FStack.Free;
+  FParser.Free;
+
+end;
+//*******************************************************************************
+
+
+/////IMDB
+
+procedure processIMDBStructSubtile(struct:IRpcStruct);
+var
+  id,i:Integer;
+  sItem:TRpcStructItem;
+  value:TRpcStructItem;
+   subtile:TSubtile;
+begin
+
+   
+             ///**********************************************
+             //fir member so start ready subtile ... time for coffe ;)
+     if (struct.KeyExists('MatchedBy')) then
+    begin
+        value:=struct.Keys['MatchedBy'];
+         Inc(subCount);
+        subtile:=TSubtile.Create;
+        subtile.nomeDaProcura:=nomeAprocurar;
+    //    trace('START read server information');
+
+     //estamos na legenda
+    end;
+
+
+
+
+
+
+
+
+
+           //if in the last    member get all values (is more safe)
+       if (struct.KeyExists('SubDownloadLink')) then
+       begin
+
+
+        value:=struct.Keys['SubDownloadLink'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.SubDownloadLink:=value.AsString;
+        end;
+
+       if (struct.KeyExists('SubLanguageID')) then
+       begin
+        value:=struct.Keys['SubLanguageID'];
+          if(Assigned(subtile)) then
+          begin
+            subtile.SubLanguageID:=value.AsString;
+          end;
+       end;
+
+        if (struct.KeyExists('SubRating')) then
+    begin
+       value:=struct.Keys['SubRating'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.SubRating:=value.AsString;
+        end;
+    end;
+
+         if (struct.KeyExists('SubFileName')) then
+    begin
+       value:=struct.Keys['SubFileName'];
+    //   element('SubFileName',value.AsString);
+         if(Assigned(subtile)) then
+         begin
+             subtile.SubFileName:=value.AsString;
+           //  form1.ListBox2.Items.Add( value.AsString+ '      Subtile Rating('+subtile.SubRating+')');
+             form1.ValueListEditor1.InsertRow(value.AsString,subtile.SubRating,True);
+          end;
+    end;
+
+    if (struct.KeyExists('SubDownloadsCnt')) then
+    begin
+       value:=struct.Keys['SubDownloadsCnt'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.SubDownloadsCnt:=StrToInt(value.AsString);
+
+        end;
+    end;
+
+      if (struct.KeyExists('SubFormat')) then
+    begin
+       value:=struct.Keys['SubFormat'];
+        if(Assigned(subtile)) then
+        begin
+         subtile.SubFormat:=value.AsString;
+        end;
+
+    end;
+      if (struct.KeyExists('SubAuthorComment')) then
+    begin
+       value:=struct.Keys['SubAuthorComment'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.SubAuthorComment:=value.AsString;
+        end;
+    end;
+      if (struct.KeyExists('SubAddDate')) then
+    begin
+       value:=struct.Keys['SubAddDate'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.SubAddDate:=value.AsString;
+        end;
+
+//       element('SubAddDate',value.AsString);
+     //
+    end;
+      if (struct.KeyExists('MovieReleaseName')) then
+    begin
+       value:=struct.Keys['MovieReleaseName'];
+        if(Assigned(subtile)) then
+        begin
+         subtile.MovieReleaseName:=value.AsString;
+        end;
+
+    end;
+      if (struct.KeyExists('IDMovieImdb')) then
+    begin
+       value:=struct.Keys['IDMovieImdb'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.IDMovieImdb:=value.AsString;
+        end;
+
+    end;
+       if (struct.KeyExists('MovieName')) then
+    begin
+       value:=struct.Keys['MovieName'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.MovieName:=value.AsString;
+        end;
+
+
+    end;
+       if (struct.KeyExists('MovieYear')) then
+    begin
+       value:=struct.Keys['MovieYear'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.MovieYear:=value.AsString;
+        end;
+
+    end;
+     if (struct.KeyExists('UserNickName')) then
+    begin
+       value:=struct.Keys['UserNickName'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.UserNickName:=value.AsString;
+        end;
+
+    end;
+
+
+
+    if (struct.KeyExists('LanguageName')) then
+    begin
+       value:=struct.Keys['LanguageName'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.LanguageName:=value.AsString;
+        end;
+
+    end;
+
+     if (struct.KeyExists('MovieImdbRating')) then
+    begin
+       value:=struct.Keys['MovieImdbRating'];
+        if(Assigned(subtile)) then
+        begin
+          subtile.MovieImdbRating:=value.AsString;
+        end;
+
+    end;
+
+
+
+
+
+
+
+
+
+        listaLegendas.Add(subtile);
+    //    trace('STOP read server information');
+
+
+    end;
+
+
+
+
+
+
+
+
+  for i:=0 to struct.Count-1 do
+  begin
+    sItem:=struct.Items[i];
+     if (sItem.IsStruct) then
+     begin
+        processIMDBStructSubtile(sItem.AsStruct);
+     end else
+     if (sItem.IsArray) then
+     begin
+       processIMDBArraySubtile(sItem.AsArray);
+     end else
+     ///********************************//
+       if (sItem.IsString) then
+      begin
+
+
+       //  trace('item :'+inttostr(i)+'  '+sItem.Name+' is string');
+      //   trace( sItem.AsString);
+      end else
+       if (sItem.IsDate) then
+      begin
+      //   trace('item :'+inttostr(i)+' is IsDate');
+      end else
+        if (sItem.IsBase64) then
+      begin
+       //  trace('item :'+inttostr(i)+' is IsBase64');
+      end else
+        if (sItem.IsInteger) then
+      begin
+        // trace('item :'+inttostr(i)+' is IsInteger');
+
+      end else
+        if (sItem.IsFloat) then
+      begin
+//        trace('item :'+inttostr(i)+        sItem.Name+' is IsFloat');
+
+      end else
+      begin
+      //  trace( sItem.Name+' -----OUTRO');
+      end;
+
+               Application.ProcessMessages;
+  end;
+
+end;
+procedure processIMDBArraySubtile(a:IRpcArray);
+var
+  i:Integer;
+    aItem:TRpcArrayItem;
+begin
+  //trace('porcess ARRAY('+inttostr( a.Count)+') elements');
+for i:=0 to a.Count-1 do
+begin
+    aItem:=a.Items[i];
+
+
+
+    if (aitem.IsArray) then
+    begin
+      processIMDBArraySubtile(aItem.AsArray);
+    end else
+    if (aitem.IsStruct) then
+    begin
+      processIMDBStructSubtile(aItem.AsStruct);
+    end else
+    ///*************************************
+     if (aitem.IsString) then
+      begin
+
+
+        // trace('item :'+inttostr(i)+' is string');
+      //   trace( aitem.AsString);
+      end else
+       if (aitem.IsDate) then
+      begin
+        // trace('item :'+inttostr(i)+' is IsDate');
+      end else
+        if (aitem.IsBase64) then
+      begin
+       //  trace('item :'+inttostr(i)+' is IsBase64');
+      end else
+        if (aitem.IsInteger) then
+      begin
+       //  trace('item :'+inttostr(i)+' is IsInteger');
+
+      end else
+        if (aitem.IsFloat) then
+      begin
+//        trace('item :'+inttostr(i)+' is IsFloat');
+       //   form1.stat1.Panels[1].Text:= FloatToStr( aItem.asFloat) +'.ms';
+      end else
+      begin
+      //  trace( ' -----OUTRO');
+      end;
+           Application.ProcessMessages;
+end;
+
+end;
+///--
+
+procedure findImdbToSubtile(xml:string);
+var
+
+
+    FLastTag: string;
+    FStructNames: TStringList;
+    FParser: TXMLParser;
+    FFixEmptyStrings: Boolean;
+    FStack: TObjectStack;
+
+    subId:Integer;
+    FRpcResult:IRpcResult;
+
+procedure PushStructName(const Name: String);
+begin
+  FStructNames.Add(Name);
+end ;
+
+function PopStructName: string ;
+var
+  I: Integer ;
+begin
+  I := FStructNames.Count - 1;
+  Result := fStructNames[I];
+  FStructNames.Delete(I);
+end ;
+
+
+procedure DataTag;
+var
+  Data: string;
+     fs:TFormatSettings;
+begin
+  Data := FParser.CurContent;
+  { should never be empty }
+  if not (Trim(Data) <> '') then
+    Exit;
+  { last tag empty ignore }
+  if (FLastTag = '') then
+    Exit;
+
+  { struct name store for next pass}
+  if (FLastTag = 'NAME') then
+    if not (Trim(Data) <> '') then
+      Exit;
+
+  {this will handle the default
+   string pain in the ass}
+  if FLastTag = 'VALUE' then
+    FLastTag := 'STRING';
+
+  {ugly null string hack}
+  if (FLastTag = 'STRING') then
+    if (Data = '[NULL]') then
+      Data := '';
+
+  {if the tag was a struct name we will
+   just store it for the next pass    }
+  if (FLastTag = 'NAME') then
+  begin
+    // CLINTON 16/9/2003
+    PushStructName(Data);
+    Exit;
+  end;
+
+  if (FStack.Count > 0) then
+    if (TObject(FStack.Peek) is TRpcStruct) then
+    begin
+      if (FLastTag = 'STRING') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtString, PopStructName, Data);
+      if (FLastTag = 'INT') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
+      if (FLastTag = 'I4') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
+      if (FLastTag = 'DOUBLE') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtFloat, PopStructName, Data);
+      if (FLastTag = 'DATETIME.ISO8601') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtDateTime, PopStructName, Data);
+      if (FLastTag = 'BASE64') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtBase64, PopStructName, Data);
+      if (FLastTag = 'BOOLEAN') then
+        TRpcStruct(FStack.Peek).LoadRawData(dtBoolean, PopStructName, Data);
+    end;
+
+  if (FStack.Count > 0) then
+    if (TObject(FStack.Peek) is TRpcArray) then
+    begin
+      if (FLastTag = 'STRING') then
+        TRpcArray(FStack.Peek).LoadRawData(dtString, Data);
+      if (FLastTag = 'INT') then
+        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
+      if (FLastTag = 'I4') then
+        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
+      if (FLastTag = 'DOUBLE') then
+        TRpcArray(FStack.Peek).LoadRawData(dtFloat, Data);
+      if (FLastTag = 'DATETIME.ISO8601') then
+        TRpcArray(FStack.Peek).LoadRawData(dtDateTime, Data);
+      if (FLastTag = 'BASE64') then
+        TRpcArray(FStack.Peek).LoadRawData(dtBase64, Data);
+      if (FLastTag = 'BOOLEAN') then
+        TRpcArray(FStack.Peek).LoadRawData(dtBoolean, Data);
+    end;
+
+  {here we are just getting a single value}
+  if FStack.Count = 0 then
+  begin
+    if (FLastTag = 'STRING') then
+      FRpcResult.AsRawString := Data;
+    if (FLastTag = 'INT') then
+      FRpcResult.AsInteger := StrToInt(Data);
+    if (FLastTag = 'I4') then
+      FRpcResult.AsInteger := StrToInt(Data);
+    if (FLastTag = 'DOUBLE') then
+    begin
+       FillChar(FS, SizeOf(FS), 0);
+    FS.DecimalSeparator := '.';
+
+      FRpcResult.AsFloat := StrToFloat(Data,FS);
+      end;
+    if (FLastTag = 'DATETIME.ISO8601') then
+      FRpcResult.AsDateTime := IsoToDateTime(Data);
+    if (FLastTag = 'BASE64') then
+      FRpcResult.AsBase64Raw := Data;
+    if (FLastTag = 'BOOLEAN') then
+      FRpcResult.AsBoolean := StrToBool(Data);
+  end;
+
+  FLastTag := '';
+end;
+
+{------------------------------------------------------------------------------}
+
+procedure EndTag;
+var
+  RpcStruct: TRpcStruct;
+  RpcArray: TRpcArray;
+  Tag: string;
+begin
+  Tag := UpperCase(Trim(string(FParser.CurName)));
+
+  {if we get a struct closure then
+   we pop it off the stack do a peek on
+   the item before it and add  it}
+  if (Tag = 'STRUCT') then
+  begin
+    {last item is a struct}
+    if (TObject(FStack.Peek) is TRpcStruct) then
+      if (FStack.Count > 0) then
+      begin
+        RpcStruct := TRpcStruct(FStack.Pop);
+        if (FStack.Count > 0) then
+        begin
+          if (TObject(FStack.Peek) is TRpcArray) then
+            TRpcArray(FStack.Peek).AddItem(RpcStruct);
+          if (TObject(FStack.Peek) is TRpcStruct) then
+            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcStruct)
+        end
+        else
+          FRpcResult.AsStruct := RpcStruct;
+        Exit;
+      end;
+
+    {last item is a array}
+    if (TObject(FStack.Peek) is TRpcArray) then
+      if (FStack.Count > 0) then
+      begin
+        RpcArray := TRpcArray(FStack.Pop);
+        if (FStack.Count > 0) then
+        begin
+          if (TObject(FStack.Peek) is TRpcArray) then
+            TRpcArray(FStack.Peek).AddItem(RpcArray);
+          if (TObject(FStack.Peek) is TRpcStruct) then
+            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
+        end
+        else
+          FRpcResult.AsArray := RpcArray;
+        Exit;
+      end;
+  end;
+
+  if (Tag = 'ARRAY') then
+  begin
+    if (TObject(FStack.Peek) is TRpcArray) then
+      if (FStack.Count > 0) then
+      begin
+        RpcArray := TRpcArray(FStack.Pop);
+        if (FStack.Count > 0) then
+        begin
+          if (TObject(FStack.Peek) is TRpcStruct) then
+          begin
+            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
+
+            end;
+          if (TObject(FStack.Peek) is TRpcArray) then
+            TRpcArray(FStack.Peek).AddItem(RpcArray);
+        end
+        else
+          FRpcResult.AsArray := RpcArray;
+        Exit;
+      end;
+  end;
+
+
+  if (Tag = 'PARAMS') then
+    if (FStack.Count > 0) then
+    begin
+      if (TObject(FStack.Peek) is TRpcStruct) then
+        FRpcResult.AsStruct := TRpcStruct(FStack.Pop);
+      if (TObject(FStack.Peek) is TRpcArray) then
+        FRpcResult.AsArray := TRpcArray(FStack.Pop);
+
+
+      FreeAndNil(FStack);
+      FreeAndNil(FStructNames);
+    end;
+end;
+
+{------------------------------------------------------------------------------}
+
+
+
+
+procedure StartTag;
+var
+  Tag: string;
+  RpcStruct: TRpcStruct;
+  RpcArray: TRpcArray;
+begin
+  Tag := UpperCase(Trim(string(FParser.CurName)));
+
+  if (Tag = 'STRUCT') then
+  begin
+    RpcStruct := TRpcStruct.Create;
+    try
+      FStack.Push(RpcStruct);
+      RpcStruct := nil;
+    finally
+      RpcStruct.Free;
+    end;
+  end;
+
+  if (Tag = 'ARRAY') then
+  begin
+    RpcArray := TRpcArray.Create;
+    try
+      FStack.Push(RpcArray);
+      RpcArray := nil;
+    finally
+      RpcArray.Free;
+    end;
+  end;
+  FLastTag := Tag;
+end;
+
+var
+i,j,index:integer;
+data:TRpcStruct;
+aItem:TRpcArrayItem;
+item:TRpcStructItem;
+iArray:iRpcArray;
+
+begin
+
+
+      FRpcResult := TRpcResult.Create;
+      FRpcResult.Clear;
+
+       subCount:=0;
+
+
+    FParser := TXMLParser.Create;
+    FStack := TObjectStack.Create;
+    FStructNames := TStringList.Create;
+
+
+  FParser.LoadFromBuffer(pchar(xml));
+  FParser.StartScan;
+  FParser.Normalize := False;
+  while FParser.Scan do
+  begin
+    case FParser.CurPartType of
+      ptStartTag:
+        StartTag;
+      ptContent:
+        DataTag;
+      ptEndTag:
+        EndTag;
+    end;
+        Application.ProcessMessages;
+  end;
+
+
+if (       FRpcResult.IsError) then
+begin
+trace(   FRpcResult.ErrorMsg);
+end;
+
+
+
+if (FRpcResult.IsArray) then
+begin
+ // trace('is array');
+end;
+if(FRpcResult.IsString) then
+begin
+  trace('is string');
+end;
+if (FRpcResult.IsStruct) then
+begin
+
+
+  for index:=0 to FRpcResult.AsStruct.Count-1 do
+  begin
+      item:=FRpcResult.AsStruct.Items[index];
+      if (item.IsArray) then
+      begin
+      processIMDBArraySubtile(item.AsArray);
+
+      end else
+      if (item.IsStruct) then
+      begin
+        processIMDBStructSubtile(item.AsStruct);
+        // trace('item :'+inttostr(index)+' is struct');
+      end else
+       if (item.IsString) then
+      begin
+      //   trace('item :'+inttostr(index)+'  '+item.Name+' is string');
+       // trace( item.AsString);
+      end else
+       if (item.IsDate) then
+      begin
+        // trace('item :'+inttostr(index)+' is IsDate');
+//        trace( item.AsString);
+      end else
+        if (item.IsBase64) then
+      begin
+        // trace('item :'+inttostr(index)+' is IsBase64');
+//        trace( item.AsString);
+      end else
+        if (item.IsInteger) then
+      begin
+        // trace('item :'+inttostr(index)+' is IsInteger');
+//        trace( item.AsString);
+      end else
+        if (item.IsFloat) then
+      begin
+          form1.stat1.Panels[1].Text:= FloatToStr( item.asFloat) +'.ms';
+      end else
+      begin
+       // trace('outro');
+      end;
+
+              Application.ProcessMessages;
+
+  end;
+
+
+
+end;
+
+form1.JvBalloonHint1.ActivateHint(form1.lst1,'Operation Complete ','Information',3000);
+
+
+
+  FStructNames.Free;
+  FStack.Free;
+  FParser.Free;
+
+end;
+
+
 procedure TForm1.IdHTTP1Status(ASender: TObject; const AStatus: TIdStatus; const AStatusText: String);
 begin
 trace('Status : '+astatustext);
@@ -1742,6 +3057,12 @@ var
    xml:string;
  connect:TStringList;
 begin
+      if (Edit1.Text='') then
+    begin
+      form1.JvBalloonHint1.ActivateHint(form1.lst1,'You stupid asshole   !!! nothing to search.. ','Information',3000);
+      exit;
+    end;
+
   listaLegendas.Clear;
   Form1.lst1.Items.Clear;
   form1.ListBox1.Items.Clear;
@@ -1751,10 +3072,10 @@ begin
     xml:=SearchSubtitles(userId, vSearchLanguages,Edit1.Text);
 
 
-   connect:=TStringList.Create();
-   connect.Add(xml);
-   connect.SaveToFile('_busca.xml');
-   connect.Destroy;
+  // connect:=TStringList.Create();
+ //  connect.Add(xml);
+ //  connect.SaveToFile('_busca.xml');
+  // connect.Destroy;
 
     findSubtileTo(xml);
 end;
@@ -1783,7 +3104,9 @@ end;
 procedure TForm1.Limpa1Click(Sender: TObject);
 begin
 lst1.Items.Clear;
+ValueListEditor1.Strings.Clear;
 listaLegendas.Clear;
+
 end;
 
 procedure TForm1.ListBox2Click(Sender: TObject);
@@ -1821,21 +3144,33 @@ var
    xml:string;
  connect:TStringList;
 begin
+      if (Edit3.Text='') then
+    begin
+      form1.JvBalloonHint1.ActivateHint(form1.lst1,'You stupid asshole   !!! nothing to search.. ','Information',3000);
+      exit;
+    end;
+
+    
   listaLegendas.Clear;
   Form1.lst1.Items.Clear;
   form1.ListBox1.Items.Clear;
-//  form1.ListBox2.Items.Clear;
   form1.ValueListEditor1.Strings.Clear;
 
     xml:=SearchSubtitlesImdb(userId, vSearchLanguages,StrToInt(Edit3.Text));
 
 
-   connect:=TStringList.Create();
-   connect.Add(xml);
-   connect.SaveToFile('_busca.xml');
-   connect.Destroy;
+  // connect:=TStringList.Create();
+  // connect.Add(xml);
+  // connect.SaveToFile('_buscaImdb.xml');
+ //connect.Destroy;
 
-    findSubtileTo(xml);
+ findImdbToSubtile(xml);
+
+  //  findImdbTo(xml);
+   //findSubtileTo(xml);
+
+
+
 
 end;
 
@@ -2444,6 +3779,120 @@ begin
    end;
 
   end;
+
+end;
+
+procedure TForm1.Button5Click(Sender: TObject);
+var
+   xml:string;
+ connect:TStringList;
+ list:string;
+season,episode, i:Integer;
+begin
+    if (Edit4.Text='')  then
+    begin
+      form1.JvBalloonHint1.ActivateHint(form1.lst1,'You stupid asshole   !!! nothing to search.. ','Information',3000);
+      exit;
+    end;
+    if (Edit5.Text='') then
+    begin
+      form1.JvBalloonHint1.ActivateHint(form1.lst1,'You stupid asshole   !!! type the season .. ','Information',3000);
+      exit;
+    end;
+    if  (Edit6.text='') then
+    begin
+      form1.JvBalloonHint1.ActivateHint(form1.lst1,'You stupid asshole   !!! type the episode.. ','Information',3000);
+      exit;
+    end;
+
+
+  listaLegendas.Clear;
+  Form1.lst1.Items.Clear;
+  form1.ListBox1.Items.Clear;
+//  form1.ListBox2.Items.Clear;
+  form1.ValueListEditor1.Strings.Clear;
+
+//  array('query' => 'south park', 'season' => 1, 'episode' => 1, 'sublanguageid'=>'all'),
+   season:=StrToInt(Edit5.Text);
+   episode:=StrToInt(Edit6.text);
+
+    xml:=SearchSubtitlesForSerie(userId, vSearchLanguages,Edit4.Text,season,episode);
+
+
+   connect:=TStringList.Create();
+   connect.Add(xml);
+   connect.SaveToFile('_busca.xml');
+   connect.Destroy;
+
+    findSubtileTo(xml);
+end;
+
+procedure TForm1.Edit5KeyPress(Sender: TObject; var Key: Char);
+begin
+ 
+
+if not (Key in [#8, '0'..'9']) then
+ begin
+    Key := #0;
+  end;
+end;
+
+procedure TForm1.Edit6KeyPress(Sender: TObject; var Key: Char);
+begin
+
+
+if not (Key in [#8, '0'..'9']) then
+ begin
+    Key := #0;
+  end;
+end;
+
+procedure TForm1.SearchAll1Click(Sender: TObject);
+var
+  i:Integer;
+
+var
+   xml:string;
+ connect:TStringList;
+begin
+
+xml:=  SearchMultiSubtitles(userId, vSearchLanguages,lst1.items);
+
+
+   connect:=TStringList.Create();
+   connect.Add(xml);
+   connect.SaveToFile('_busca.xml');
+   connect.Destroy;
+
+    findSubtileTo(xml);
+
+end;
+
+procedure TForm1.Button6Click(Sender: TObject);
+var
+   xml:string;
+ connect:TStringList;
+begin
+
+    xml:=SearchMovieImdb(userId,  Edit3.Text);
+
+    if (Edit3.Text='') then
+    begin
+      form1.JvBalloonHint1.ActivateHint(form1.lst1,'You stupid asshole   !!! nothing to search.. ','Information',3000);
+      exit;
+    end;
+    // trace(xml);
+  // connect:=TStringList.Create();
+ //  connect.Add(xml);
+  // connect.SaveToFile('_imdb.xml');
+  // connect.Destroy;
+
+
+    findImdbTo(xml);
+
+       form4.Update();
+    
+
 
 end;
 

@@ -1,10 +1,10 @@
 object Form1: TForm1
-  Left = 153
-  Top = 83
+  Left = 144
+  Top = 100
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
   Caption = 'Form1'
-  ClientHeight = 493
+  ClientHeight = 519
   ClientWidth = 1164
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -20,7 +20,7 @@ object Form1: TForm1
   TextHeight = 13
   object stat1: TStatusBar
     Left = 0
-    Top = 474
+    Top = 500
     Width = 1164
     Height = 19
     Panels = <
@@ -39,7 +39,7 @@ object Form1: TForm1
   end
   object mmo1: TMemo
     Left = 0
-    Top = 416
+    Top = 442
     Width = 1164
     Height = 58
     Align = alBottom
@@ -58,7 +58,7 @@ object Form1: TForm1
     Left = 448
     Top = 0
     Width = 716
-    Height = 416
+    Height = 442
     Align = alRight
     TabOrder = 2
     object ListBox1: TListBox
@@ -305,7 +305,7 @@ object Form1: TForm1
     Left = 0
     Top = 0
     Width = 448
-    Height = 416
+    Height = 442
     Align = alClient
     Caption = 'pnl2'
     TabOrder = 3
@@ -313,7 +313,7 @@ object Form1: TForm1
       Left = 1
       Top = 1
       Width = 446
-      Height = 104
+      Height = 128
       Align = alTop
       TabOrder = 0
       object Image1: TImage
@@ -412,6 +412,33 @@ object Form1: TForm1
           AAD36D170F23BA828823C1219941FE9C28A2803FFFD9}
         Stretch = True
       end
+      object Label23: TLabel
+        Left = 70
+        Top = 80
+        Width = 27
+        Height = 13
+        Caption = 'Name'
+      end
+      object Label24: TLabel
+        Left = 208
+        Top = 80
+        Width = 35
+        Height = 13
+        Caption = 'Season'
+      end
+      object Label25: TLabel
+        Left = 285
+        Top = 79
+        Width = 37
+        Height = 13
+        Caption = 'Episode'
+      end
+      object Bevel1: TBevel
+        Left = 11
+        Top = 79
+        Width = 420
+        Height = 46
+      end
       object Edit1: TEdit
         Left = 8
         Top = 16
@@ -442,7 +469,7 @@ object Form1: TForm1
       object Edit3: TEdit
         Left = 88
         Top = 48
-        Width = 249
+        Width = 121
         Height = 26
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
@@ -454,18 +481,62 @@ object Form1: TForm1
         OnKeyPress = Edit3KeyPress
       end
       object Button2: TButton
-        Left = 344
-        Top = 48
+        Left = 240
+        Top = 50
         Width = 91
         Height = 25
         Caption = 'Find by IMDB'
         TabOrder = 3
         OnClick = Button2Click
       end
+      object Button5: TButton
+        Left = 357
+        Top = 92
+        Width = 69
+        Height = 25
+        Hint = 'Search for serie by Season and Episode'
+        Caption = 'Find Serie'
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 4
+        OnClick = Button5Click
+      end
+      object Edit4: TEdit
+        Left = 16
+        Top = 96
+        Width = 169
+        Height = 21
+        TabOrder = 5
+      end
+      object Edit5: TEdit
+        Left = 200
+        Top = 96
+        Width = 57
+        Height = 21
+        TabOrder = 6
+        OnKeyPress = Edit5KeyPress
+      end
+      object Edit6: TEdit
+        Left = 280
+        Top = 96
+        Width = 49
+        Height = 21
+        TabOrder = 7
+        OnKeyPress = Edit6KeyPress
+      end
+      object Button6: TButton
+        Left = 344
+        Top = 48
+        Width = 75
+        Height = 25
+        Caption = 'Movie Info'
+        TabOrder = 8
+        OnClick = Button6Click
+      end
     end
     object Panel2: TPanel
       Left = 1
-      Top = 104
+      Top = 130
       Width = 446
       Height = 311
       Align = alBottom
@@ -547,6 +618,13 @@ object Form1: TForm1
     object Limpa1: TMenuItem
       Caption = 'Clear'
       OnClick = Limpa1Click
+    end
+    object N3: TMenuItem
+      Caption = '-'
+    end
+    object SearchAll1: TMenuItem
+      Caption = 'Search All'
+      OnClick = SearchAll1Click
     end
   end
   object IdHTTP2: TIdHTTP
