@@ -307,8 +307,7 @@ end;
 {  replace item in string                                                      }
 {------------------------------------------------------------------------------}
 
-function Replace(const Data: string; const Find: string;
-  const Replace: string): string;
+function Replace(const Data: string; const Find: string;const Replace: string): string;
 var
   C: Integer;
   Temp, Temp2: string;

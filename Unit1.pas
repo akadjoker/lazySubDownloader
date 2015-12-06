@@ -4,8 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls,xmldoc, XmlRpcTypes,Contnrs, XmlRpcCommon,LibXmlParser,
-  IdBaseComponent, IdComponent, IdTCPConnection, IdTCPClient, IdHTTP,
+  Dialogs, StdCtrls, XmlRpcTypes,IdBaseComponent, IdComponent, IdTCPConnection, IdTCPClient, IdHTTP,
   ComCtrls,IniFiles, Menus, ExtCtrls,WinInet,gzIO,USubtile, ImgList,
   JvComponentBase, JvBalloonHint, jpeg, Grids, ValEdit;
 
@@ -1131,204 +1130,52 @@ end;
 procedure ConnectTo(xml:string);
 var
 
+ parser:TRpcParser;
+   struct:IRpcStruct;
+    FRpcResult: IRpcResult;
+   begin
 
-    FLastTag: string;
-    FStructNames: TStringList;
-    FParser: TXMLParser;
-    FFixEmptyStrings: Boolean;
-    FStack: TObjectStack;
-    FRpcResult: TRpcStruct;
 
-procedure PushStructName(const Name: String);
-begin
-  FStructNames.Add(Name);
-end ;
+   parser:=TRpcParser.Create();
+   FRpcResult:=parser.Parse(xml);
 
-function PopStructName: string ;
-var
-  I: Integer ;
-begin
-  I := FStructNames.Count - 1;
-  Result := fStructNames[I];
-  FStructNames.Delete(I);
-end ;
-
-procedure DataTag;
-var
-  Data: string;
-    fs:TFormatSettings;
-
-begin
-  Data := FParser.CurContent;
-  { should never be empty }
-  if not (Trim(Data) <> '') then
-    Exit;
-  { last tag empty ignore }
-  if (FLastTag = '') then
-    Exit;
-
-  { struct name store for next pass}
-  if (FLastTag = 'NAME') then
-    if not (Trim(Data) <> '') then
+   if (FRpcResult.IsError) then
+   begin
+      trace('Error : '+ FRpcResult.ErrorMsg);
+      parser.Destroy;
       Exit;
+   end;
 
-  {this will handle the default
-   string pain in the ass}
-  if FLastTag = 'VALUE' then
-    FLastTag := 'STRING';
 
-  {ugly null string hack}
-  if (FLastTag = 'STRING') then
-    if (Data = '[NULL]') then
-      Data := '';
-
-  {if the tag was a struct name we will
-   just store it for the next pass    }
-  if (FLastTag = 'NAME') then
+  if (  FRpcResult.IsStruct) then
   begin
-    PushStructName(Data);
-    Exit;
-  end;
-      
-
-    if (FLastTag = 'STRING') then
-    begin
-        FRpcResult.AddItem(PopStructName,data);
-        // trace(PopStructName);  trace(FLastTag);trace(Data);
-    end;
-    if (FLastTag = 'INT') then
-    begin
-              FRpcResult.AddItem(PopStructName,StrToInt(Data));
-
-     // FRpcResult.AsInteger := StrToInt(Data);
-    end;
-    if (FLastTag = 'I4') then
-    begin
-     FRpcResult.AddItem(PopStructName,StrToInt(Data));
-     end;
-    if (FLastTag = 'DOUBLE') then
-    begin
-
-       //   trace(FLastTag);trace(Data);
-       //  FRpcResult.AddItem(PopStructName,data);
-       // DecimalSeparator := ',';
-
-       
-    FillChar(FS, SizeOf(FS), 0);
-    FS.DecimalSeparator := '.';
-    FRpcResult.AddItem(PopStructName,StrToFloat(Data,FS));
-
-      end;
-    if (FLastTag = 'DATETIME.ISO8601') then
-    begin
-       FRpcResult.AddItemDateTime(PopStructName,IsoToDateTime(Data));
-      end;
-    if (FLastTag = 'BASE64') then
-    begin
-    FRpcResult.AddItemBase64Raw(PopStructName,data);
-    end;
-    if (FLastTag = 'BOOLEAN') then
-    begin
-     FRpcResult.AddItem(PopStructName,StrToBool(Data));
-     end;
+   struct:= FRpcResult.AsStruct;
 
 
-  FLastTag := '';
-end;
 
-{------------------------------------------------------------------------------}
-
-procedure EndTag;
-var
-
-  Tag: string;
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-
-  if (Tag = 'STRUCT') then
-  begin
-
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-
-  end;
-
-  {if we get the params closure then we will pull the array
-   and or struct and add it to the final result then clean up}
-  if (Tag = 'PARAMS') then
-  begin
-
-  end;
-end;
-
-{------------------------------------------------------------------------------}
-
-procedure StartTag;
-var
-  Tag: string;
-
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-  if (Tag = 'STRUCT') then
-  begin
-
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-
-  end;
-  FLastTag := Tag;
-end ;
-
-begin
-
-    FRpcResult := TRpcStruct.Create;
-    FParser := TXMLParser.Create;
-    FStack := TObjectStack.Create;
-    FStructNames := TStringList.Create;
-
-  FRpcResult.Clear;
-  FParser.LoadFromBuffer(pchar(xml));
-  FParser.StartScan;
-  FParser.Normalize := False;
-  while FParser.Scan do
-  begin
-    case FParser.CurPartType of
-      ptStartTag:
-        StartTag;
-      ptContent:
-        DataTag;
-      ptEndTag:
-        EndTag;
-    end;
-              Application.ProcessMessages;
-  end;
-
- if ( FRpcResult.KeyExists('token')) then
+ if ( struct.KeyExists('token')) then
  begin
-  userId:=FRpcResult.Keys['token'].AsString;
+  userId:=struct.Keys['token'].AsString;
   form1.stat1.Panels[2].Text:='User ID:'+userid;
  end;
 
- if ( FRpcResult.KeyExists('status')) then
+ if ( struct.KeyExists('status')) then
  begin
-  form1.stat1.Panels[0].Text:=FRpcResult.Keys['status'].AsString;
+  form1.stat1.Panels[0].Text:=struct.Keys['status'].AsString;
 
  end;
 
- if ( FRpcResult.KeyExists('seconds')) then
+ if ( struct.KeyExists('seconds')) then
  begin
-    form1.stat1.Panels[1].Text:= FloatToStr( FRpcResult.Keys['seconds'].asFloat) +'.ms';
+    form1.stat1.Panels[1].Text:= FloatToStr( struct.Keys['seconds'].asFloat) +'.ms';
  end;
 
-  FStructNames.Free;
-  FStack.Free;
-  FParser.Free;
+  end;
+
+
+
+
+ parser.Destroy;
 
 end;
 
@@ -1337,298 +1184,35 @@ procedure findSubtileTo(xml:string);
 var
 
 
-    FLastTag: string;
-    FStructNames: TStringList;
-    FParser: TXMLParser;
-    FFixEmptyStrings: Boolean;
-    FStack: TObjectStack;
-
     subId:Integer;
-    FRpcResult:IRpcResult;
 
-procedure PushStructName(const Name: String);
-begin
-  FStructNames.Add(Name);
-end ;
-
-function PopStructName: string ;
-var
-  I: Integer ;
-begin
-  I := FStructNames.Count - 1;
-  Result := fStructNames[I];
-  FStructNames.Delete(I);
-end ;
-
-
-procedure DataTag;
-var
-  Data: string;
-     fs:TFormatSettings;
-begin
-  Data := FParser.CurContent;
-  { should never be empty }
-  if not (Trim(Data) <> '') then
-    Exit;
-  { last tag empty ignore }
-  if (FLastTag = '') then
-    Exit;
-
-  { struct name store for next pass}
-  if (FLastTag = 'NAME') then
-    if not (Trim(Data) <> '') then
-      Exit;
-
-  {this will handle the default
-   string pain in the ass}
-  if FLastTag = 'VALUE' then
-    FLastTag := 'STRING';
-
-  {ugly null string hack}
-  if (FLastTag = 'STRING') then
-    if (Data = '[NULL]') then
-      Data := '';
-
-  {if the tag was a struct name we will
-   just store it for the next pass    }
-  if (FLastTag = 'NAME') then
-  begin
-    // CLINTON 16/9/2003
-    PushStructName(Data);
-    Exit;
-  end;
-
-  if (FStack.Count > 0) then
-    if (TObject(FStack.Peek) is TRpcStruct) then
-    begin
-      if (FLastTag = 'STRING') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtString, PopStructName, Data);
-      if (FLastTag = 'INT') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
-      if (FLastTag = 'I4') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
-      if (FLastTag = 'DOUBLE') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtFloat, PopStructName, Data);
-      if (FLastTag = 'DATETIME.ISO8601') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtDateTime, PopStructName, Data);
-      if (FLastTag = 'BASE64') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtBase64, PopStructName, Data);
-      if (FLastTag = 'BOOLEAN') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtBoolean, PopStructName, Data);
-    end;
-
-  if (FStack.Count > 0) then
-    if (TObject(FStack.Peek) is TRpcArray) then
-    begin
-      if (FLastTag = 'STRING') then
-        TRpcArray(FStack.Peek).LoadRawData(dtString, Data);
-      if (FLastTag = 'INT') then
-        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
-      if (FLastTag = 'I4') then
-        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
-      if (FLastTag = 'DOUBLE') then
-        TRpcArray(FStack.Peek).LoadRawData(dtFloat, Data);
-      if (FLastTag = 'DATETIME.ISO8601') then
-        TRpcArray(FStack.Peek).LoadRawData(dtDateTime, Data);
-      if (FLastTag = 'BASE64') then
-        TRpcArray(FStack.Peek).LoadRawData(dtBase64, Data);
-      if (FLastTag = 'BOOLEAN') then
-        TRpcArray(FStack.Peek).LoadRawData(dtBoolean, Data);
-    end;
-
-  {here we are just getting a single value}
-  if FStack.Count = 0 then
-  begin
-    if (FLastTag = 'STRING') then
-      FRpcResult.AsRawString := Data;
-    if (FLastTag = 'INT') then
-      FRpcResult.AsInteger := StrToInt(Data);
-    if (FLastTag = 'I4') then
-      FRpcResult.AsInteger := StrToInt(Data);
-    if (FLastTag = 'DOUBLE') then
-    begin
-       FillChar(FS, SizeOf(FS), 0);
-    FS.DecimalSeparator := '.';
-
-      FRpcResult.AsFloat := StrToFloat(Data,FS);
-      end;
-    if (FLastTag = 'DATETIME.ISO8601') then
-      FRpcResult.AsDateTime := IsoToDateTime(Data);
-    if (FLastTag = 'BASE64') then
-      FRpcResult.AsBase64Raw := Data;
-    if (FLastTag = 'BOOLEAN') then
-      FRpcResult.AsBoolean := StrToBool(Data);
-  end;
-
-  FLastTag := '';
-end;
-
-{------------------------------------------------------------------------------}
-
-procedure EndTag;
-var
-  RpcStruct: TRpcStruct;
-  RpcArray: TRpcArray;
-  Tag: string;
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-  {if we get a struct closure then
-   we pop it off the stack do a peek on
-   the item before it and add  it}
-  if (Tag = 'STRUCT') then
-  begin
-    {last item is a struct}
-    if (TObject(FStack.Peek) is TRpcStruct) then
-      if (FStack.Count > 0) then
-      begin
-        RpcStruct := TRpcStruct(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcStruct);
-          if (TObject(FStack.Peek) is TRpcStruct) then
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcStruct)
-        end
-        else
-          FRpcResult.AsStruct := RpcStruct;
-        Exit;
-      end;
-
-    {last item is a array}
-    if (TObject(FStack.Peek) is TRpcArray) then
-      if (FStack.Count > 0) then
-      begin
-        RpcArray := TRpcArray(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcArray);
-          if (TObject(FStack.Peek) is TRpcStruct) then
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
-        end
-        else
-          FRpcResult.AsArray := RpcArray;
-        Exit;
-      end;
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-    if (TObject(FStack.Peek) is TRpcArray) then
-      if (FStack.Count > 0) then
-      begin
-        RpcArray := TRpcArray(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcStruct) then
-          begin
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
-
-            end;
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcArray);
-        end
-        else
-          FRpcResult.AsArray := RpcArray;
-        Exit;
-      end;
-  end;
-
-
-  if (Tag = 'PARAMS') then
-    if (FStack.Count > 0) then
-    begin
-      if (TObject(FStack.Peek) is TRpcStruct) then
-        FRpcResult.AsStruct := TRpcStruct(FStack.Pop);
-      if (TObject(FStack.Peek) is TRpcArray) then
-        FRpcResult.AsArray := TRpcArray(FStack.Pop);
-
-
-      FreeAndNil(FStack);
-      FreeAndNil(FStructNames);
-    end;
-end;
-
-{------------------------------------------------------------------------------}
-
-
-
-
-procedure StartTag;
-var
-  Tag: string;
-  RpcStruct: TRpcStruct;
-  RpcArray: TRpcArray;
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-  if (Tag = 'STRUCT') then
-  begin
-    RpcStruct := TRpcStruct.Create;
-    try
-      FStack.Push(RpcStruct);
-      RpcStruct := nil;
-    finally
-      RpcStruct.Free;
-    end;
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-    RpcArray := TRpcArray.Create;
-    try
-      FStack.Push(RpcArray);
-      RpcArray := nil;
-    finally
-      RpcArray.Free;
-    end;
-  end;
-  FLastTag := Tag;
-end;
-
-var
 i,j,index:integer;
 data:TRpcStruct;
 aItem:TRpcArrayItem;
 item:TRpcStructItem;
 iArray:iRpcArray;
 
+ parser:TRpcParser;
+ FRpcResult:IRpcResult;
+
 begin
 
-      FRpcResult := TRpcResult.Create;
-      FRpcResult.Clear;
+
+
+   parser:=TRpcParser.Create();
+   FRpcResult:=parser.Parse(xml);
+
 
        subCount:=0;
 
-
-    FParser := TXMLParser.Create;
-    FStack := TObjectStack.Create;
-    FStructNames := TStringList.Create;
-
-
-  FParser.LoadFromBuffer(pchar(xml));
-  FParser.StartScan;
-  FParser.Normalize := False;
-  while FParser.Scan do
-  begin
-    case FParser.CurPartType of
-      ptStartTag:
-        StartTag;
-      ptContent:
-        DataTag;
-      ptEndTag:
-        EndTag;
-    end;
-              Application.ProcessMessages;
-  end;
-
-
 if (       FRpcResult.IsError) then
 begin
-trace(   FRpcResult.ErrorMsg);
-end;
+      trace('Error : '+ FRpcResult.ErrorMsg);
+      parser.Destroy;
+      endOfWorld:=True;
+      Exit;
 
+end;
 
 
 if (FRpcResult.IsArray) then
@@ -1704,9 +1288,7 @@ form1.JvBalloonHint1.ActivateHint(form1.lst1,'Find ('+inttostr(subCount)+') Subt
 //    JvBalloonHint1.ActivateHint(LCtrl, memMessage.Text, edtHeader.Text, LVisibleTime);
 
 
-  FStructNames.Free;
-  FStack.Free;
-  FParser.Free;
+parser.Destroy;
 
 end;
 ///********************************
@@ -1863,299 +1445,36 @@ end;
 procedure findImdbTo(xml:string);
 var
 
-
-    FLastTag: string;
-    FStructNames: TStringList;
-    FParser: TXMLParser;
-    FFixEmptyStrings: Boolean;
-    FStack: TObjectStack;
-
     subId:Integer;
     FRpcResult:IRpcResult;
 
-procedure PushStructName(const Name: String);
-begin
-  FStructNames.Add(Name);
-end ;
-
-function PopStructName: string ;
-var
-  I: Integer ;
-begin
-  I := FStructNames.Count - 1;
-  Result := fStructNames[I];
-  FStructNames.Delete(I);
-end ;
 
 
-procedure DataTag;
-var
-  Data: string;
-     fs:TFormatSettings;
-begin
-  Data := FParser.CurContent;
-  { should never be empty }
-  if not (Trim(Data) <> '') then
-    Exit;
-  { last tag empty ignore }
-  if (FLastTag = '') then
-    Exit;
-
-  { struct name store for next pass}
-  if (FLastTag = 'NAME') then
-    if not (Trim(Data) <> '') then
-      Exit;
-
-  {this will handle the default
-   string pain in the ass}
-  if FLastTag = 'VALUE' then
-    FLastTag := 'STRING';
-
-  {ugly null string hack}
-  if (FLastTag = 'STRING') then
-    if (Data = '[NULL]') then
-      Data := '';
-
-  {if the tag was a struct name we will
-   just store it for the next pass    }
-  if (FLastTag = 'NAME') then
-  begin
-    // CLINTON 16/9/2003
-    PushStructName(Data);
-    Exit;
-  end;
-
-  if (FStack.Count > 0) then
-    if (TObject(FStack.Peek) is TRpcStruct) then
-    begin
-      if (FLastTag = 'STRING') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtString, PopStructName, Data);
-      if (FLastTag = 'INT') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
-      if (FLastTag = 'I4') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
-      if (FLastTag = 'DOUBLE') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtFloat, PopStructName, Data);
-      if (FLastTag = 'DATETIME.ISO8601') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtDateTime, PopStructName, Data);
-      if (FLastTag = 'BASE64') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtBase64, PopStructName, Data);
-      if (FLastTag = 'BOOLEAN') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtBoolean, PopStructName, Data);
-    end;
-
-  if (FStack.Count > 0) then
-    if (TObject(FStack.Peek) is TRpcArray) then
-    begin
-      if (FLastTag = 'STRING') then
-        TRpcArray(FStack.Peek).LoadRawData(dtString, Data);
-      if (FLastTag = 'INT') then
-        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
-      if (FLastTag = 'I4') then
-        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
-      if (FLastTag = 'DOUBLE') then
-        TRpcArray(FStack.Peek).LoadRawData(dtFloat, Data);
-      if (FLastTag = 'DATETIME.ISO8601') then
-        TRpcArray(FStack.Peek).LoadRawData(dtDateTime, Data);
-      if (FLastTag = 'BASE64') then
-        TRpcArray(FStack.Peek).LoadRawData(dtBase64, Data);
-      if (FLastTag = 'BOOLEAN') then
-        TRpcArray(FStack.Peek).LoadRawData(dtBoolean, Data);
-    end;
-
-  {here we are just getting a single value}
-  if FStack.Count = 0 then
-  begin
-    if (FLastTag = 'STRING') then
-      FRpcResult.AsRawString := Data;
-    if (FLastTag = 'INT') then
-      FRpcResult.AsInteger := StrToInt(Data);
-    if (FLastTag = 'I4') then
-      FRpcResult.AsInteger := StrToInt(Data);
-    if (FLastTag = 'DOUBLE') then
-    begin
-       FillChar(FS, SizeOf(FS), 0);
-    FS.DecimalSeparator := '.';
-
-      FRpcResult.AsFloat := StrToFloat(Data,FS);
-      end;
-    if (FLastTag = 'DATETIME.ISO8601') then
-      FRpcResult.AsDateTime := IsoToDateTime(Data);
-    if (FLastTag = 'BASE64') then
-      FRpcResult.AsBase64Raw := Data;
-    if (FLastTag = 'BOOLEAN') then
-      FRpcResult.AsBoolean := StrToBool(Data);
-  end;
-
-  FLastTag := '';
-end;
-
-{------------------------------------------------------------------------------}
-
-procedure EndTag;
-var
-  RpcStruct: TRpcStruct;
-  RpcArray: TRpcArray;
-  Tag: string;
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-  {if we get a struct closure then
-   we pop it off the stack do a peek on
-   the item before it and add  it}
-  if (Tag = 'STRUCT') then
-  begin
-    {last item is a struct}
-    if (TObject(FStack.Peek) is TRpcStruct) then
-      if (FStack.Count > 0) then
-      begin
-        RpcStruct := TRpcStruct(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcStruct);
-          if (TObject(FStack.Peek) is TRpcStruct) then
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcStruct)
-        end
-        else
-          FRpcResult.AsStruct := RpcStruct;
-        Exit;
-      end;
-
-    {last item is a array}
-    if (TObject(FStack.Peek) is TRpcArray) then
-      if (FStack.Count > 0) then
-      begin
-        RpcArray := TRpcArray(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcArray);
-          if (TObject(FStack.Peek) is TRpcStruct) then
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
-        end
-        else
-          FRpcResult.AsArray := RpcArray;
-        Exit;
-      end;
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-    if (TObject(FStack.Peek) is TRpcArray) then
-      if (FStack.Count > 0) then
-      begin
-        RpcArray := TRpcArray(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcStruct) then
-          begin
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
-
-            end;
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcArray);
-        end
-        else
-          FRpcResult.AsArray := RpcArray;
-        Exit;
-      end;
-  end;
-
-
-  if (Tag = 'PARAMS') then
-    if (FStack.Count > 0) then
-    begin
-      if (TObject(FStack.Peek) is TRpcStruct) then
-        FRpcResult.AsStruct := TRpcStruct(FStack.Pop);
-      if (TObject(FStack.Peek) is TRpcArray) then
-        FRpcResult.AsArray := TRpcArray(FStack.Pop);
-
-
-      FreeAndNil(FStack);
-      FreeAndNil(FStructNames);
-    end;
-end;
-
-{------------------------------------------------------------------------------}
-
-
-
-
-procedure StartTag;
-var
-  Tag: string;
-  RpcStruct: TRpcStruct;
-  RpcArray: TRpcArray;
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-  if (Tag = 'STRUCT') then
-  begin
-    RpcStruct := TRpcStruct.Create;
-    try
-      FStack.Push(RpcStruct);
-      RpcStruct := nil;
-    finally
-      RpcStruct.Free;
-    end;
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-    RpcArray := TRpcArray.Create;
-    try
-      FStack.Push(RpcArray);
-      RpcArray := nil;
-    finally
-      RpcArray.Free;
-    end;
-  end;
-  FLastTag := Tag;
-end;
-
-var
 i,j,index:integer;
 data:TRpcStruct;
 aItem:TRpcArrayItem;
 item:TRpcStructItem;
 iArray:iRpcArray;
 
+ parser:TRpcParser;
+
 begin
 
 
-      FRpcResult := TRpcResult.Create;
-      FRpcResult.Clear;
+
+   parser:=TRpcParser.Create();
+   FRpcResult:=parser.Parse(xml);
+
 
        subCount:=0;
 
-
-    FParser := TXMLParser.Create;
-    FStack := TObjectStack.Create;
-    FStructNames := TStringList.Create;
-
-
-  FParser.LoadFromBuffer(pchar(xml));
-  FParser.StartScan;
-  FParser.Normalize := False;
-  while FParser.Scan do
-  begin
-    case FParser.CurPartType of
-      ptStartTag:
-        StartTag;
-      ptContent:
-        DataTag;
-      ptEndTag:
-        EndTag;
-    end;
-        Application.ProcessMessages;
-  end;
-
-
 if (       FRpcResult.IsError) then
 begin
-trace(   FRpcResult.ErrorMsg);
-endOfWorld:=True;
+      trace('Error : '+ FRpcResult.ErrorMsg);
+      parser.Destroy;
+      endOfWorld:=True;
+      Exit;
+
 end;
 
 
@@ -2224,10 +1543,7 @@ end;
 form1.JvBalloonHint1.ActivateHint(form1.lst1,'Operation Complete ','Information',3000);
 
 
-
-  FStructNames.Free;
-  FStack.Free;
-  FParser.Free;
+parser.Destroy;
 
 end;
 //*******************************************************************************
@@ -2538,298 +1854,37 @@ procedure findImdbToSubtile(xml:string);
 var
 
 
-    FLastTag: string;
-    FStructNames: TStringList;
-    FParser: TXMLParser;
-    FFixEmptyStrings: Boolean;
-    FStack: TObjectStack;
-
     subId:Integer;
-    FRpcResult:IRpcResult;
 
-procedure PushStructName(const Name: String);
-begin
-  FStructNames.Add(Name);
-end ;
-
-function PopStructName: string ;
-var
-  I: Integer ;
-begin
-  I := FStructNames.Count - 1;
-  Result := fStructNames[I];
-  FStructNames.Delete(I);
-end ;
-
-
-procedure DataTag;
-var
-  Data: string;
-     fs:TFormatSettings;
-begin
-  Data := FParser.CurContent;
-  { should never be empty }
-  if not (Trim(Data) <> '') then
-    Exit;
-  { last tag empty ignore }
-  if (FLastTag = '') then
-    Exit;
-
-  { struct name store for next pass}
-  if (FLastTag = 'NAME') then
-    if not (Trim(Data) <> '') then
-      Exit;
-
-  {this will handle the default
-   string pain in the ass}
-  if FLastTag = 'VALUE' then
-    FLastTag := 'STRING';
-
-  {ugly null string hack}
-  if (FLastTag = 'STRING') then
-    if (Data = '[NULL]') then
-      Data := '';
-
-  {if the tag was a struct name we will
-   just store it for the next pass    }
-  if (FLastTag = 'NAME') then
-  begin
-    // CLINTON 16/9/2003
-    PushStructName(Data);
-    Exit;
-  end;
-
-  if (FStack.Count > 0) then
-    if (TObject(FStack.Peek) is TRpcStruct) then
-    begin
-      if (FLastTag = 'STRING') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtString, PopStructName, Data);
-      if (FLastTag = 'INT') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
-      if (FLastTag = 'I4') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtInteger, PopStructName, Data);
-      if (FLastTag = 'DOUBLE') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtFloat, PopStructName, Data);
-      if (FLastTag = 'DATETIME.ISO8601') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtDateTime, PopStructName, Data);
-      if (FLastTag = 'BASE64') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtBase64, PopStructName, Data);
-      if (FLastTag = 'BOOLEAN') then
-        TRpcStruct(FStack.Peek).LoadRawData(dtBoolean, PopStructName, Data);
-    end;
-
-  if (FStack.Count > 0) then
-    if (TObject(FStack.Peek) is TRpcArray) then
-    begin
-      if (FLastTag = 'STRING') then
-        TRpcArray(FStack.Peek).LoadRawData(dtString, Data);
-      if (FLastTag = 'INT') then
-        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
-      if (FLastTag = 'I4') then
-        TRpcArray(FStack.Peek).LoadRawData(dtInteger, Data);
-      if (FLastTag = 'DOUBLE') then
-        TRpcArray(FStack.Peek).LoadRawData(dtFloat, Data);
-      if (FLastTag = 'DATETIME.ISO8601') then
-        TRpcArray(FStack.Peek).LoadRawData(dtDateTime, Data);
-      if (FLastTag = 'BASE64') then
-        TRpcArray(FStack.Peek).LoadRawData(dtBase64, Data);
-      if (FLastTag = 'BOOLEAN') then
-        TRpcArray(FStack.Peek).LoadRawData(dtBoolean, Data);
-    end;
-
-  {here we are just getting a single value}
-  if FStack.Count = 0 then
-  begin
-    if (FLastTag = 'STRING') then
-      FRpcResult.AsRawString := Data;
-    if (FLastTag = 'INT') then
-      FRpcResult.AsInteger := StrToInt(Data);
-    if (FLastTag = 'I4') then
-      FRpcResult.AsInteger := StrToInt(Data);
-    if (FLastTag = 'DOUBLE') then
-    begin
-       FillChar(FS, SizeOf(FS), 0);
-    FS.DecimalSeparator := '.';
-
-      FRpcResult.AsFloat := StrToFloat(Data,FS);
-      end;
-    if (FLastTag = 'DATETIME.ISO8601') then
-      FRpcResult.AsDateTime := IsoToDateTime(Data);
-    if (FLastTag = 'BASE64') then
-      FRpcResult.AsBase64Raw := Data;
-    if (FLastTag = 'BOOLEAN') then
-      FRpcResult.AsBoolean := StrToBool(Data);
-  end;
-
-  FLastTag := '';
-end;
-
-{------------------------------------------------------------------------------}
-
-procedure EndTag;
-var
-  RpcStruct: TRpcStruct;
-  RpcArray: TRpcArray;
-  Tag: string;
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-  {if we get a struct closure then
-   we pop it off the stack do a peek on
-   the item before it and add  it}
-  if (Tag = 'STRUCT') then
-  begin
-    {last item is a struct}
-    if (TObject(FStack.Peek) is TRpcStruct) then
-      if (FStack.Count > 0) then
-      begin
-        RpcStruct := TRpcStruct(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcStruct);
-          if (TObject(FStack.Peek) is TRpcStruct) then
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcStruct)
-        end
-        else
-          FRpcResult.AsStruct := RpcStruct;
-        Exit;
-      end;
-
-    {last item is a array}
-    if (TObject(FStack.Peek) is TRpcArray) then
-      if (FStack.Count > 0) then
-      begin
-        RpcArray := TRpcArray(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcArray);
-          if (TObject(FStack.Peek) is TRpcStruct) then
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
-        end
-        else
-          FRpcResult.AsArray := RpcArray;
-        Exit;
-      end;
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-    if (TObject(FStack.Peek) is TRpcArray) then
-      if (FStack.Count > 0) then
-      begin
-        RpcArray := TRpcArray(FStack.Pop);
-        if (FStack.Count > 0) then
-        begin
-          if (TObject(FStack.Peek) is TRpcStruct) then
-          begin
-            TRpcStruct(FStack.Peek).AddItem(PopStructName, RpcArray);
-
-            end;
-          if (TObject(FStack.Peek) is TRpcArray) then
-            TRpcArray(FStack.Peek).AddItem(RpcArray);
-        end
-        else
-          FRpcResult.AsArray := RpcArray;
-        Exit;
-      end;
-  end;
-
-
-  if (Tag = 'PARAMS') then
-    if (FStack.Count > 0) then
-    begin
-      if (TObject(FStack.Peek) is TRpcStruct) then
-        FRpcResult.AsStruct := TRpcStruct(FStack.Pop);
-      if (TObject(FStack.Peek) is TRpcArray) then
-        FRpcResult.AsArray := TRpcArray(FStack.Pop);
-
-
-      FreeAndNil(FStack);
-      FreeAndNil(FStructNames);
-    end;
-end;
-
-{------------------------------------------------------------------------------}
-
-
-
-
-procedure StartTag;
-var
-  Tag: string;
-  RpcStruct: TRpcStruct;
-  RpcArray: TRpcArray;
-begin
-  Tag := UpperCase(Trim(string(FParser.CurName)));
-
-  if (Tag = 'STRUCT') then
-  begin
-    RpcStruct := TRpcStruct.Create;
-    try
-      FStack.Push(RpcStruct);
-      RpcStruct := nil;
-    finally
-      RpcStruct.Free;
-    end;
-  end;
-
-  if (Tag = 'ARRAY') then
-  begin
-    RpcArray := TRpcArray.Create;
-    try
-      FStack.Push(RpcArray);
-      RpcArray := nil;
-    finally
-      RpcArray.Free;
-    end;
-  end;
-  FLastTag := Tag;
-end;
-
-var
 i,j,index:integer;
 data:TRpcStruct;
 aItem:TRpcArrayItem;
 item:TRpcStructItem;
 iArray:iRpcArray;
 
+ parser:TRpcParser;
+     FRpcResult:IRpcResult;
+
 begin
 
 
-      FRpcResult := TRpcResult.Create;
-      FRpcResult.Clear;
+
+   parser:=TRpcParser.Create();
+   FRpcResult:=parser.Parse(xml);
+
 
        subCount:=0;
 
-
-    FParser := TXMLParser.Create;
-    FStack := TObjectStack.Create;
-    FStructNames := TStringList.Create;
-
-
-  FParser.LoadFromBuffer(pchar(xml));
-  FParser.StartScan;
-  FParser.Normalize := False;
-  while FParser.Scan do
-  begin
-    case FParser.CurPartType of
-      ptStartTag:
-        StartTag;
-      ptContent:
-        DataTag;
-      ptEndTag:
-        EndTag;
-    end;
-        Application.ProcessMessages;
-  end;
-
-
 if (       FRpcResult.IsError) then
 begin
-trace(   FRpcResult.ErrorMsg);
+      trace('Error : '+ FRpcResult.ErrorMsg);
+      parser.Destroy;
+      endOfWorld:=True;
+      Exit;
+
 end;
+
+
 
 
 
@@ -2839,7 +1894,7 @@ begin
 end;
 if(FRpcResult.IsString) then
 begin
-  trace('is string');
+ // trace('is string');
 end;
 if (FRpcResult.IsStruct) then
 begin
@@ -2898,9 +1953,7 @@ form1.JvBalloonHint1.ActivateHint(form1.lst1,'Operation Complete ','Information'
 
 
 
-  FStructNames.Free;
-  FStack.Free;
-  FParser.Free;
+parser.Destroy;
 
 end;
 
