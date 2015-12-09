@@ -35,7 +35,7 @@ unit XmlRpcTypes;
 interface
 
 uses
-  SysUtils, Classes, Contnrs,DIMime,LibXmlParser, XmlRpcCommon;
+  SysUtils, Classes,Forms, Contnrs,DIMime,LibXmlParser, XmlRpcCommon;
 
 type
   IRpcArray = interface;
@@ -496,6 +496,7 @@ begin
       ptEndTag:
         EndTag;
     end;
+    Application.ProcessMessages;
   end;
   Result:=FRpcResult;
 end;

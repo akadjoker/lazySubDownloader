@@ -7,15 +7,20 @@
 {       Copyright (c) 1998 Jacques Nomssi Nzali         }
 {                                                       }
 {*******************************************************}
+{
+  Modifiied 12/2015 by Luis Santos AKA DJOKER for Delphi 7+ and FPC compatibility.
+}
 
 unit dzlib;
 
 {$WARN UNSAFE_TYPE OFF}
 {$WARN UNSAFE_CODE OFF}
-
+   {$IFDEF FPC}
+  {$MODE DELPHI}
+{$ENDIF}    
 interface
 
-uses gzlib, Sysutils, Classes;
+uses packdata, Sysutils, Classes;
 
 {$IFDEF VER80}
   {$DEFINE Delphi16}
@@ -32,6 +37,8 @@ type
 
 const
   FBufSize = 8192;
+
+
 type
   { Abstract ancestor class }
   TCustomZlibStream = class(TStream)
@@ -71,8 +78,16 @@ type
   indicator when you are writing a large chunk of data to the compression
   stream in a single call.}
 
+    TZipProgressEvent=procedure(Sender: TObject; DoneBytes: integer) ;
 
   TCompressionLevel = (clNone, clFastest, clDefault, clMax);
+
+
+        Tgzopenmode=(
+          gzopenread,                 {Open file for reading.}
+          gzopenwrite                 {Open file for writing.}
+        );
+
 
   TCompressionStream = class(TCustomZlibStream)
   private
@@ -117,6 +132,30 @@ type
 
 
 
+        TGZFileStream = Class(TStream)
+        protected
+          Fgzfile:gzfile;
+          Ffilemode:Tgzopenmode;
+
+        public
+          constructor create(filename:ansistring;filemode:Tgzopenmode);  overload;
+          constructor create(strm:TStream;filemode:Tgzopenmode); overload;
+
+          procedure saveTo(stream:Tstream);overload;
+          procedure saveTo(filename:String);overload;
+
+
+          function read(var buffer;count:longint):longint;override;
+          function write(const buffer;count:longint):longint;override;
+          function seek(offset:longint;origin:word):longint;override;
+          destructor destroy;override;
+          public
+            onProgress:TZipProgressEvent;
+        end;
+
+
+
+
 { CompressBuf compresses data, buffer to buffer, in one call.
    In: InBuf = ptr to compressed data
        InBytes = number of bytes in InBuf
@@ -148,14 +187,13 @@ type
   EZlibError = class(Exception);
   ECompressionError = class(EZlibError);
   EDecompressionError = class(EZlibError);
+  Egzfileerror=class(Ezliberror)        end;
+
+
+
 
 implementation
 
-uses
-  {$IFDEF Delphi16}
-  WinTypes, WinProcs,
-  {$ENDIF}
-  zutil, zDeflate, zInflate;
 
 {$IFDEF Delphi16}
 Procedure zlibFreeMem(AppData, Block: Pointer); far;
@@ -480,6 +518,99 @@ begin
   Result := FZRec.total_out;
 end;
 
+//****************************************************************
+procedure doProgress(Sender: TObject; DoneBytes: integer) ;
+begin
 
+end;
+
+constructor Tgzfilestream.create(filename:ansistring;filemode:Tgzopenmode);
+
+begin
+
+  onProgress:=doProgress;
+  if filemode=gzopenread then
+    Fgzfile:=gzopen(filename,'rb')
+  else
+    Fgzfile:=gzopen(filename,'wb');
+  Ffilemode:=filemode;
+  if Fgzfile=nil then
+    raise Egzfileerror.createfmt('Sgz_open_error',[filename]);
+end;
+
+constructor Tgzfilestream.create(strm:TStream;filemode:Tgzopenmode  );
+
+begin
+    onProgress:=doProgress;
+  if filemode=gzopenread then
+    Fgzfile:=gzopen(strm,'rb')
+  else
+    Fgzfile:=gzopen(strm,'wb');
+  Ffilemode:=filemode;
+  if Fgzfile=nil then
+    raise Egzfileerror.create('Sgz_open_error');
+end;
+
+
+function Tgzfilestream.read(var buffer;count:longint):longint;
+
+begin
+  if Ffilemode=gzopenwrite then
+    raise Egzfileerror.create('Sgz_write_only');
+  read:=gzread(Fgzfile,@buffer,count);
+end;
+
+procedure Tgzfilestream.saveTo(stream:Tstream);
+var
+   buf  : packed array [0..FBufSize-1] of byte;
+    len     : integer;
+begin
+ while true do
+ begin
+    len := read ( buf, FBufSize);
+    if (len < 0)       then  raise egzfileerror.create('read_failed');
+    if (len = 0)       then break;
+    if assigned(onProgress) then
+    begin
+      onProgress(self,len);
+    end;
+    stream.WriteBuffer(buf,len);
+end;
+
+end;
+
+procedure Tgzfilestream.saveTo(filename:String);
+var
+    strm:TfileStream;
+begin
+
+ strm:=TFileStream.Create(filename, fmCreate);
+ saveto(strm);
+ strm.destroy;
+
+end;
+
+function Tgzfilestream.write(const buffer;count:longint):longint;
+
+begin
+  if Ffilemode=gzopenread then
+    raise Egzfileerror.create('Sgz_write_only');
+  write:=gzwrite(Fgzfile,@buffer,count);
+end;
+
+function Tgzfilestream.seek(offset:longint;origin:word):longint;
+    var sk:z_off_t;
+begin
+  sk:=gzseek(Fgzfile,offset,origin);
+  if sk=-1 then
+    raise egzfileerror.create('Sseek_failed');
+end;
+
+destructor Tgzfilestream.destroy;
+
+begin
+  gzclose(Fgzfile);
+  inherited destroy;
+end;
 
 end.

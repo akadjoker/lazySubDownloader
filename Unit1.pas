@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, StdCtrls, XmlRpcTypes,IdBaseComponent, IdComponent, IdTCPConnection, IdTCPClient, IdHTTP,
-  ComCtrls,IniFiles, Menus, ExtCtrls,WinInet,gzIO,USubtile, ImgList,
+  ComCtrls,IniFiles, Menus, ExtCtrls,WinInet,USubtile, ImgList,
   JvComponentBase, JvBalloonHint, jpeg, Grids, ValEdit;
 
    const
@@ -101,7 +101,7 @@ type
     procedure Edit2DblClick(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
-    procedure HttpWork(Sender: TObject; AWorkMode: TWorkMode;      const AWorkCount: Integer);
+   
     procedure IdHTTP1WorkEnd(Sender: TObject; AWorkMode: TWorkMode);
     procedure IdHTTP1Work(Sender: TObject; AWorkMode: TWorkMode;
       const AWorkCount: Integer);
@@ -163,7 +163,7 @@ var
 
 implementation
 
-uses  ShellApi,uLog, Unit3, Unit4;
+uses packdata,dzlib, ShellApi,uLog, Unit3, Unit4;
 
 const
   cSupportedExts = '*.avi;*.mp4;*.mkv;*.dvx;*.h264;*.mpeg;*.*;';
@@ -340,96 +340,18 @@ begin
 end;
    }
 
-procedure TForm1.HttpWork(Sender: TObject; AWorkMode: TWorkMode;      const AWorkCount: Integer);
-var
-  Http: TIdHTTP;
-  ContentLength: Int64;
-  Percent: Integer;
-begin
-  Http := TIdHTTP(Sender);
-  ContentLength := Http.Response.ContentLength;
-
- // form1.pb1.Max:=ContentLength;
-
-
-if (Pos('chunked', LowerCase(Http.Response.ResponseText)) = 0) and(ContentLength > 0) then
-begin
-    Percent := 100*AWorkCount div ContentLength;
-    form1.pb1.Position:=Percent;
-//    trace(IntToStr(ContentLength )+','+inttostr(percent)+','+inttostr(AWorkCount));
-
-
-   // MemoOutput.Lines.Add(IntToStr(Percent));
-end;
-
-end;
 
 
 
-procedure gz_uncompress (infile:gzFile;  outfile:string);
-var
-  len     : integer;
-  written : uInt;
-  ioerr   : integer;
-  err     : integer;
-   buf  : packed array [0..BUFLEN-1] of byte;
-   fileExtract:TMemoryStream;
-begin
-fileExtract:=TMemoryStream.Create;
 
 
-
-  while true do
- begin
-    len := gzread (infile, @buf, BUFLEN);
-    if (len < 0)       then trace (gzerror (infile, err));
-    if (len = 0)       then break;
-    fileExtract.WriteBuffer(buf,len);
-end;
-
-   fileExtract.SaveToFile(outfile);
-   fileExtract.Destroy;
-
-end;
-
-
-procedure extractfile(url,saveto:string);
-var
- infile  : gzFile;
-begin
-
-infile:=gzopen(url,'r');
-if (infile = NIL) then
-  begin
-   exit;
-  end;
-
-gz_uncompress(infile,saveto);
-
-  if (gzclose (infile) <> 0{Z_OK})
-    then trace ('gzclose error');
-
-
-
-end;
 procedure extractStream(st:TStream;saveto:string);
 var
- infile  : gzFile;
+  zip:TGZFileStream;
 begin
-
-infile:=gzopen(st,'r',false);
-if (infile = NIL) then
-  begin
-   trace ('gzopen error');
-   exit;
-  end;
-
-gz_uncompress(infile,saveto);
-
-  if (gzclose (infile) <> 0)
-    then trace ('gzclose error');
-
-
+  zip:=TGZFileStream.create(st,gzopenread);
+  zip.saveTo(saveto);
+  zip.destroy;;
 
 end;
 
@@ -2014,7 +1936,7 @@ procedure TForm1.FormCreate(Sender: TObject);
 var
    IniFile : TIniFile;
  begin
-        IdHTTP1.OnWork:=HttpWork;
+      
        listaLegendas:=TSubtileList.Create;
 
 
@@ -2023,10 +1945,10 @@ var
    vUserPass:=   IniFile.ReadString('setup', 'pass', '');
    vSearchLanguages:=  IniFile.ReadString('setup', 'SearchLanguage', 'por,pob');
    vUserLanguage:=IniFile.ReadString('setup', 'language', 'pt');
-   IniFile.ReadString('setup', 'version', '0.0.2');
+   IniFile.ReadString('setup', 'version', '0.2.0');
    IniFile.destroy;
 
-   Caption:='Lazy Subtile Download 0.0.2 By Luis Santos AKA DJOKER';
+   Caption:='Lazy Subtile Download 0.2.0 By Luis Santos AKA DJOKER';
    trace(caption);
 
    Form1.stat1.Panels[3].Text:=vUserName;
@@ -2044,16 +1966,16 @@ form2.show;
 end;
 
 procedure TForm1.Log2Click(Sender: TObject);
-var
-   connect:TStringList;
+//var
+ //  connect:TStringList;
 begin
 
     xmlConnect:=LogIn(vUserName, vUserPass, vUserLanguage);
 
-   connect:=TStringList.Create();
-   connect.Add(xmlConnect);
-   connect.SaveToFile('_connect.xml');
-   connect.Destroy;
+  // connect:=TStringList.Create();
+  // connect.Add(xmlConnect);
+  // connect.SaveToFile('_connect.xml');
+  // connect.Destroy;
 
 
 
@@ -2872,10 +2794,10 @@ begin
     xml:=SearchSubtitlesForSerie(userId, vSearchLanguages,Edit4.Text,season,episode);
 
 
-   connect:=TStringList.Create();
-   connect.Add(xml);
-   connect.SaveToFile('_busca.xml');
-   connect.Destroy;
+ //  connect:=TStringList.Create();
+  // connect.Add(xml);
+  // connect.SaveToFile('_busca.xml');
+  // connect.Destroy;
 
     findSubtileTo(xml);
 end;
@@ -2912,10 +2834,10 @@ begin
 xml:=  SearchMultiSubtitles(userId, vSearchLanguages,lst1.items);
 
 
-   connect:=TStringList.Create();
-   connect.Add(xml);
-   connect.SaveToFile('_busca.xml');
-   connect.Destroy;
+ //  connect:=TStringList.Create();
+ //  connect.Add(xml);
+  // connect.SaveToFile('_busca.xml');
+  // connect.Destroy;
 
     findSubtileTo(xml);
 
